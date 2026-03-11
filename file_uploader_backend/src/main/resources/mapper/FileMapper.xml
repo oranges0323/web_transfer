@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.oranges.fileuploaderbackend.mapper.FileMapper">
+
+    <resultMap id="BaseResultMap" type="com.oranges.fileuploaderbackend.model.entity.FileInfo">
+            <id property="id" column="id" />
+            <result property="url" column="url" />
+            <result property="name" column="name" />
+            <result property="fileSize" column="fileSize" />
+            <result property="fileFormat" column="fileFormat" />
+            <result property="fileType" column="fileType" />
+            <result property="userId" column="userId" />
+            <result property="createTime" column="createTime" />
+            <result property="isEncryption" column="isEncryption" />
+            <result property="filePassword" column="filePassword" />
+            <result property="isDelete" column="isDelete" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,url,name,fileSize,fileFormat,fileType,
+        userId,createTime,isEncryption,filePassword,isDelete
+    </sql>
+</mapper>

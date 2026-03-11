@@ -1,0 +1,712 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { ElMessage, ElUpload, ElButton, ElForm, ElFormItem, ElInput, ElSwitch, ElProgress, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTag, ElPagination, ElSelect, ElOption, ElDialog } from 'element-plus'
+import { UploadFilled, Lock, Unlock, Search, Download, View, Delete, Refresh } from '@element-plus/icons-vue'
+import { uploadUsingPost, encryptUsingPost, listFileVoByIdUsingGet, deleteFileUsingPost, downloadFileUsingGet } from '@/api/fileController'
+
+const router = useRouter()
+const userStore = useUserStore()
+
+// 文件上传相关
+const fileList = ref<any[]>([])
+const uploadProgress = ref(0)
+const isUploading = ref(false)
+const isEncrypting = ref(false)
+const encryptPassword = ref('')
+const enableEncryption = ref(false)
+
+// 我的上传相关
+const myUploadsList = ref<API.FileInfoVO[]>([])
+const loading = ref(false)
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(10)
+const searchName = ref('')
+const fileType = ref('')
+const isEncryptionFilter = ref<number | null>(null)
+const dialogVisible = ref(false)
+const currentFile = ref<API.FileInfoVO | null>(null)
+const encryptForm = ref({
+  filePassword: '',
+  isEncryption: 1
+})
+const isDownloadOperation = ref(false)
+
+// 当前选中的选项卡
+const activeTab = ref('upload')
+
+// 上传文件前的处理
+const beforeUpload = (file: any) => {
+  // 检查文件大小（这里限制为100MB）
+  const isLt100M = file.size / 1024 / 1024 < 100
+  if (!isLt100M) {
+    ElMessage.error('文件大小不能超过 100MB!')
+    return false
+  }
+  return true
+}
+
+// 文件上传处理
+const handleUpload = async () => {
+  if (fileList.value.length === 0) {
+    ElMessage.warning('请选择要上传的文件')
+    return
+  }
+
+  if (enableEncryption.value && !encryptPassword.value) {
+    ElMessage.warning('启用加密时，请输入加密密码')
+    return
+  }
+
+  isUploading.value = true
+  uploadProgress.value = 0
+
+  try {
+    const file = fileList.value[0].raw
+
+    // 构建上传参数
+    const uploadParams: any = {}
+
+    // 添加用户ID参数
+    if (userStore.loginUser?.id) {
+      uploadParams.userId = userStore.loginUser.id
+    }
+
+    const uploadResult = await uploadUsingPost(uploadParams, file, {
+      onUploadProgress: (progressEvent: any) => {
+        uploadProgress.value = Math.round(
+          (progressEvent.loaded * 100) / progressEvent.total
+        )
+      }
+    })
+
+    if (uploadResult.code === 0 && uploadResult.data) {
+      ElMessage.success('文件上传成功!')
+
+      // 如果需要加密
+      if (enableEncryption.value) {
+        isEncrypting.value = true
+        const encryptResult = await encryptUsingPost({
+          id: uploadResult.data.id,
+          isEncryption: 1,
+          filePassword: encryptPassword.value
+        })
+
+        if (encryptResult.code === 0 && encryptResult.data) {
+          ElMessage.success('文件加密成功!')
+        } else {
+          ElMessage.error(encryptResult.message || '文件加密失败')
+        }
+        isEncrypting.value = false
+      }
+
+      // 上传成功后刷新我的上传列表
+      if (activeTab.value === 'my-uploads') {
+        fetchMyUploads()
+      }
+
+      // 清空文件列表和表单
+      fileList.value = []
+      enableEncryption.value = false
+      encryptPassword.value = ''
+    } else {
+      ElMessage.error(uploadResult.message || '文件上传失败')
+    }
+  } catch (error) {
+    console.error('上传出错:', error)
+    ElMessage.error('上传过程中出现错误')
+  } finally {
+    isUploading.value = false
+  }
+}
+
+// 获取我的上传列表
+const fetchMyUploads = async () => {
+  loading.value = true
+  try {
+    const params: any = {
+      current: currentPage.value,
+      pageSize: pageSize.value
+    }
+
+    // 只获取当前用户上传的文件
+    if (userStore.loginUser?.id) {
+      params.userId = userStore.loginUser.id
+    }
+
+    if (searchName.value) {
+      params.name = searchName.value
+    }
+
+    if (fileType.value) {
+      params.fileType = fileType.value
+    }
+
+    if (isEncryptionFilter.value !== null) {
+      params.isEncryption = isEncryptionFilter.value
+    }
+
+    const response = await listFileVoByIdUsingGet(params)
+    if (response.code === 0 && response.data) {
+      myUploadsList.value = response.data.records || []
+      total.value = response.data.total || 0
+    } else {
+      ElMessage.error(response.message || '获取文件列表失败')
+    }
+  } catch (error) {
+    console.error('获取文件列表出错:', error)
+    ElMessage.error('获取文件列表时发生错误')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 页面加载时获取文件列表
+onMounted(() => {
+  if (activeTab.value === 'my-uploads') {
+    fetchMyUploads()
+  }
+})
+
+// 处理页码变化
+const handleCurrentChange = (page: number) => {
+  currentPage.value = page
+  fetchMyUploads()
+}
+
+// 处理每页显示数量变化
+const handleSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchMyUploads()
+}
+
+// 搜索文件
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchMyUploads()
+}
+
+// 重置搜索条件
+const handleReset = () => {
+  searchName.value = ''
+  fileType.value = ''
+  isEncryptionFilter.value = null
+  currentPage.value = 1
+  fetchMyUploads()
+}
+
+// 查看文件详情
+const viewFileDetail = (file: API.FileInfoVO) => {
+  router.push(`/file/detail/${file.id}`)
+}
+
+// 下载文件
+const downloadFile = async (file: API.FileInfoVO) => {
+  try {
+    // 如果是加密文件，需要先输入密码
+    if (file.isEncryption === 1) {
+      currentFile.value = file
+      encryptForm.value.filePassword = ''
+      dialogVisible.value = true
+      // 标记当前操作是下载
+      isDownloadOperation.value = true
+      return
+    }
+
+    const response = await downloadFileUsingGet({ id: String(file.id) })
+    if (response && response.url) {
+      // 创建一个隐藏的a标签来触发下载
+      const link = document.createElement('a')
+      link.href = response.url
+      link.download = file.name || 'download'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      ElMessage.success('文件下载成功')
+    } else {
+      ElMessage.error('获取下载链接失败')
+    }
+  } catch (error) {
+    console.error('下载文件出错:', error)
+    ElMessage.error('下载文件时发生错误')
+  }
+}
+
+// 删除文件
+const deleteFile = async (file: API.FileInfoVO) => {
+  try {
+    const response = await deleteFileUsingPost({ id: file.id })
+    if (response.code === 0 && response.data) {
+      ElMessage.success('文件删除成功')
+      fetchMyUploads() // 刷新列表
+    } else {
+      ElMessage.error(response.message || '文件删除失败')
+    }
+  } catch (error) {
+    console.error('删除文件出错:', error)
+    ElMessage.error('删除文件时发生错误')
+  }
+}
+
+// 打开加密对话框
+const openEncryptDialog = (file: API.FileInfoVO) => {
+  currentFile.value = file
+  encryptForm.value.filePassword = ''
+  dialogVisible.value = true
+}
+
+// 确认加密/解密
+const confirmEncryption = async () => {
+  if (!currentFile.value) return
+
+  try {
+    // 如果是下载操作
+    if (isDownloadOperation.value) {
+      if (!encryptForm.value.filePassword) {
+        ElMessage.warning('请输入解密密码')
+        return
+      }
+
+      const response = await downloadFileUsingGet({
+        id: String(currentFile.value.id),
+        filePassword: encryptForm.value.filePassword
+      })
+
+      if (response && response.url) {
+        // 创建一个隐藏的a标签来触发下载
+        const link = document.createElement('a')
+        link.href = response.url
+        link.download = currentFile.value.name || 'download'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        ElMessage.success('文件下载成功')
+      } else {
+        ElMessage.error('获取下载链接失败')
+      }
+
+      dialogVisible.value = false
+      isDownloadOperation.value = false
+      return
+    }
+
+    // 加密/解密操作
+    const encryptResult = await encryptUsingPost({
+      id: currentFile.value.id,
+      isEncryption: currentFile.value.isEncryption === 1 ? 0 : 1,
+      filePassword: encryptForm.value.filePassword
+    })
+
+    if (encryptResult.code === 0 && encryptResult.data) {
+      ElMessage.success(currentFile.value.isEncryption === 1 ? '文件解密成功' : '文件加密成功')
+      dialogVisible.value = false
+      fetchMyUploads() // 刷新列表
+    } else {
+      ElMessage.error(encryptResult.message || '操作失败')
+    }
+  } catch (error) {
+    console.error('加密/解密出错:', error)
+    ElMessage.error('操作过程中发生错误')
+  }
+}
+
+// 格式化文件大小
+const formatFileSize = (size: number) => {
+  if (!size) return '0 B'
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let index = 0
+  let fileSize = Number(size) // 确保是数字类型
+
+  while (fileSize >= 1024 && index < units.length - 1) {
+    fileSize /= 1024
+    index++
+  }
+
+  return `${fileSize.toFixed(2)} ${units[index]}`
+}
+
+// 获取文件类型
+const getFileType = (filename: string) => {
+  if (!filename) return 'unknown'
+
+  const ext = filename.split('.').pop()?.toLowerCase()
+
+  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(ext || '')) {
+    return 'image'
+  } else if (['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm'].includes(ext || '')) {
+    return 'video'
+  } else if (['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(ext || '')) {
+    return 'audio'
+  } else if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext || '')) {
+    return 'document'
+  } else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext || '')) {
+    return 'archive'
+  } else {
+    return 'other'
+  }
+}
+
+// 获取文件类型标签
+const getFileTypeTag = (filename: string) => {
+  const type = getFileType(filename)
+
+  const typeMap = {
+    image: { text: '图片', type: 'success' },
+    video: { text: '视频', type: 'warning' },
+    audio: { text: '音频', type: 'info' },
+    document: { text: '文档', type: 'primary' },
+    archive: { text: '压缩包', type: 'danger' },
+    other: { text: '其他', type: '' }
+  }
+
+  return typeMap[type] || typeMap.other
+}
+
+// 切换选项卡
+const handleTabChange = (tabName: string) => {
+  activeTab.value = tabName
+  if (tabName === 'my-uploads') {
+    fetchMyUploads()
+  }
+}
+</script>
+
+<template>
+  <div class="file-upload-container">
+    <div class="upload-card">
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+        <el-tab-pane label="文件上传" name="upload">
+          <h2 class="upload-title">文件上传</h2>
+
+          <el-form :model="{ encryptPassword }" label-width="100px">
+            <el-form-item label="选择文件">
+              <el-upload
+                class="upload-demo"
+                drag
+                :limit="1"
+                :auto-upload="false"
+                :on-change="(file: any) => fileList = [file]"
+                :before-upload="beforeUpload"
+                :file-list="fileList"
+              >
+                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                <div class="el-upload__text">
+                  将文件拖到此处，或<em>点击选择文件</em>
+                </div>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    单次上传文件大小不超过 100MB
+                  </div>
+                </template>
+              </el-upload>
+            </el-form-item>
+
+            <el-form-item label="加密设置">
+              <div class="encryption-settings">
+                <el-switch
+                  v-model="enableEncryption"
+                  active-text="启用加密"
+                  inactive-text="不加密"
+                />
+                <el-icon v-if="enableEncryption" class="lock-icon"><lock /></el-icon>
+                <el-icon v-else class="lock-icon"><unlock /></el-icon>
+              </div>
+            </el-form-item>
+
+            <el-form-item v-if="enableEncryption" label="加密密码">
+              <el-input
+                v-model="encryptPassword"
+                type="password"
+                placeholder="请输入加密密码"
+                show-password
+              />
+            </el-form-item>
+
+            <el-form-item>
+              <div class="action-buttons">
+                <el-button
+                  type="primary"
+                  :loading="isUploading"
+                  @click="handleUpload"
+                >
+                  {{ isUploading ? '上传中...' : '上传文件' }}
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-form>
+
+          <div v-if="isUploading" class="progress-container">
+            <el-progress :percentage="uploadProgress" />
+            <p v-if="isEncrypting" class="encrypting-text">正在加密文件，请稍候...</p>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="我的上传" name="my-uploads">
+          <div class="my-uploads-header">
+            <h2 class="upload-title">我的上传</h2>
+          </div>
+
+          <div class="filter-container">
+            <div class="filter-item">
+              <el-input
+                v-model="searchName"
+                placeholder="搜索文件名"
+                clearable
+                @keyup.enter="handleSearch"
+              >
+                <template #prefix>
+                  <el-icon><search /></el-icon>
+                </template>
+              </el-input>
+            </div>
+
+            <div class="filter-item">
+              <el-select v-model="fileType" placeholder="文件类型" clearable>
+                <el-option label="图片" value="image" />
+                <el-option label="视频" value="video" />
+                <el-option label="音频" value="audio" />
+                <el-option label="文档" value="document" />
+                <el-option label="压缩包" value="archive" />
+                <el-option label="其他" value="other" />
+              </el-select>
+            </div>
+
+            <div class="filter-item">
+              <el-select v-model="isEncryptionFilter" placeholder="加密状态" clearable>
+                <el-option label="已加密" :value="1" />
+                <el-option label="未加密" :value="0" />
+              </el-select>
+            </div>
+
+            <div class="filter-item">
+              <el-button type="primary" @click="handleSearch">
+                <el-icon><search /></el-icon>搜索
+              </el-button>
+              <el-button @click="handleReset">
+                <el-icon><refresh /></el-icon>重置
+              </el-button>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <el-table
+              v-loading="loading"
+              :data="myUploadsList"
+              style="width: 100%"
+              stripe
+              border
+            >
+              <el-table-column prop="name" label="文件名" min-width="200">
+                <template #default="scope">
+                  <div class="file-name-cell">
+                    <span>{{ scope.row.name }}</span>
+                    <el-tag :type="getFileTypeTag(scope.row.name).type" size="small">
+                      {{ getFileTypeTag(scope.row.name).text }}
+                    </el-tag>
+                  </div>
+                </template>
+              </el-table-column>
+
+              <el-table-column prop="fileSize" label="文件大小" width="120">
+                <template #default="scope">
+                  {{ formatFileSize(scope.row.fileSize || 0) }}
+                </template>
+              </el-table-column>
+
+              <el-table-column prop="createTime" label="上传时间" width="180" />
+
+              <el-table-column prop="isEncryption" label="加密状态" width="100">
+                <template #default="scope">
+                  <el-tag v-if="scope.row.isEncryption === 1" type="warning">
+                    <el-icon><lock /></el-icon>已加密
+                  </el-tag>
+                  <el-tag v-else type="success">
+                    <el-icon><unlock /></el-icon>未加密
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="操作" width="300">
+                <template #default="scope">
+                  <el-button size="small" @click="viewFileDetail(scope.row)">
+                    <el-icon><view /></el-icon>详情
+                  </el-button>
+                  <el-button size="small" type="primary" @click="downloadFile(scope.row)">
+                    <el-icon><download /></el-icon>下载
+                  </el-button>
+                  <el-button
+                    size="small"
+                    :type="scope.row.isEncryption === 1 ? 'success' : 'warning'"
+                    @click="openEncryptDialog(scope.row)"
+                  >
+                    <el-icon v-if="scope.row.isEncryption === 1"><unlock /></el-icon>
+                    <el-icon v-else><lock /></el-icon>
+                    {{ scope.row.isEncryption === 1 ? '解密' : '加密' }}
+                  </el-button>
+                  <el-button size="small" type="danger" @click="deleteFile(scope.row)">
+                    <el-icon><delete /></el-icon>删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <div class="pagination-container">
+              <el-pagination
+                v-model:current-page="currentPage"
+                v-model:page-size="pageSize"
+                :page-sizes="[5, 10, 20, 50]"
+                :total="total"
+                layout="total, sizes, prev, pager, next, jumper"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
+              />
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- 加密/解密对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="isDownloadOperation ? '下载加密文件' : (currentFile?.isEncryption === 1 ? '文件解密' : '文件加密')"
+      width="400px"
+    >
+      <el-form :model="encryptForm" label-width="80px">
+        <el-form-item label="密码">
+          <el-input
+            v-model="encryptForm.filePassword"
+            type="password"
+            :placeholder="currentFile?.isEncryption === 1 ? '请输入解密密码' : '请输入加密密码'"
+            show-password
+          />
+        </el-form-item>
+        <p v-if="currentFile?.isEncryption === 1" class="decrypt-notice">
+          确定要解密文件 "{{ currentFile?.name }}" 吗？
+        </p>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmEncryption">
+            确定
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<style scoped>
+.file-upload-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: calc(100vh - 64px);
+  padding: 20px;
+}
+
+.upload-card {
+  width: 100%;
+  max-width: 1200px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 30px;
+}
+
+.upload-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.my-uploads-header {
+  margin-bottom: 20px;
+}
+
+.upload-demo {
+  width: 100%;
+}
+
+.encryption-settings {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lock-icon {
+  color: #409eff;
+  font-size: 18px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.progress-container {
+  margin-top: 20px;
+}
+
+.encrypting-text {
+  text-align: center;
+  margin-top: 10px;
+  color: #409eff;
+  font-size: 14px;
+}
+
+.filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.filter-item {
+  min-width: 180px;
+}
+
+.table-container {
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.file-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.decrypt-notice {
+  color: #e6a23c;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+:deep(.el-upload-dragger) {
+  width: 100%;
+}
+
+:deep(.el-tabs__content) {
+  padding-top: 20px;
+}
+</style>
