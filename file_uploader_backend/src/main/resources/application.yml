@@ -17,6 +17,12 @@ spring:
 ##  激活读取配置(可以直接在运行配置开）
 #  profiles:
 #    active: local
+  # Redis 配置
+  redis:
+    database: 0
+    host: 127.0.0.1
+    port: 6379
+    timeout: 5000
 
 #配置下划线转驼峰,这里不需要，关了
 mybatis-plus:

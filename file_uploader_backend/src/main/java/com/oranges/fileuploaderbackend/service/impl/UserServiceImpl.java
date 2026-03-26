@@ -1,6 +1,8 @@
 package com.oranges.fileuploaderbackend.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -8,6 +10,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.oranges.fileuploaderbackend.constant.UserConstant;
 import com.oranges.fileuploaderbackend.exception.BusinessException;
 import com.oranges.fileuploaderbackend.exception.ErrorCode;
+import com.oranges.fileuploaderbackend.exception.ThrowUtils;
 import com.oranges.fileuploaderbackend.model.dto.user.UserQueryRequest;
 import com.oranges.fileuploaderbackend.model.enums.UserRoleEnum;
 import com.oranges.fileuploaderbackend.model.vo.LoginUserVO;
@@ -15,7 +18,9 @@ import com.oranges.fileuploaderbackend.model.vo.UserVO;
 import com.oranges.fileuploaderbackend.service.UserService;
 import com.oranges.fileuploaderbackend.model.entity.User;
 import com.oranges.fileuploaderbackend.mapper.UserMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
@@ -24,6 +29,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -31,9 +37,13 @@ import java.util.stream.Collectors;
 * @description 针对表【user(用户)】的数据库操作Service实现
 * @createDate 2025-12-24 09:07:44
 */
+@Slf4j
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     implements UserService {
+
+    @Resource
+    private RedisTemplate redisTemplate;
 
     @Resource
     private UserMapper userMapper;
@@ -65,7 +75,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         User user = new User();
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
-        user.setUserAvatar("https://img.ixintu.com/download/jpg/20201121/e8a5f006ec63a963c04a2b3116997e89_512_512.jpg!ys");
+        user.setUserAvatar("https://tu.tuhenmei.com/zb_users/upload/2023/04/202304061680747835229972.jpg");
         user.setUserName("默认用户");
         user.setUserRole(UserRoleEnum.USER.getValue());
         user.setCreateTime(new Date());
@@ -100,37 +110,63 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户不存在或密码错误");
         }
         //设置登录态
-        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE,user);
-        return this.getLoginUserVO(user);
+//        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE,user);
+
+
+        //todo 使用redis保存登录态
+        //生成随机token
+        String token = UUID.randomUUID().toString(true);
+        //将token保存到redis中
+        UserVO userVO = BeanUtil.copyProperties(user, UserVO.class);
+        redisTemplate.opsForValue().set("loginUser:token:"+token,userVO,7, TimeUnit.DAYS);
+        LoginUserVO loginUserVO = this.getLoginUserVO(user);
+        loginUserVO.setToken(token);
+        return loginUserVO;
+
+
+//        return  this.getLoginUserVO(user);
+
     }
 
     @Override
     public boolean userLogout(HttpServletRequest request) {
-        //先判断是否登录
-        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        if(userObj == null){
+//        //先判断是否登录
+//        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+//        if(userObj == null){
+//            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+//        }
+//        //清除登录态
+//        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
+
+        //todo 使用redis清除登录态
+        String token = request.getHeader("authorization");
+        //校验是否登录
+        if(StrUtil.isBlank(token)){
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        //清除登录态
-        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
 
+        redisTemplate.delete("loginUser:token:"+token);
         return true;
     }
 
 
     @Override
     public User getLoginUser(HttpServletRequest request) {
-        //先判断是否登录
-        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if(currentUser == null || currentUser.getId() == null){
+        //从请求头获取token
+        String token = request.getHeader("authorization");
+        //校验是否登录
+        if(StrUtil.isBlank(token)){
+            log.error("token为空");
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
+        //从redis中获取用户信息
+        UserVO userVO = (UserVO) redisTemplate.opsForValue().get("loginUser:token:" + token);
+        ThrowUtils.throwIf(userVO == null, ErrorCode.NOT_LOGIN_ERROR);
         //查询用户是否存在
-        Long userId = currentUser.getId();
-        currentUser = this.getById(userId);
+        User currentUser = this.getById(userVO.getId());
         return currentUser;
     }
+
     @Override
     public QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest) {
         if (userQueryRequest == null) {

@@ -20,7 +20,8 @@ request.interceptors.request.use(
     // 从 localStorage 获取 token
     const token = localStorage.getItem('token')
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      // 直接使用 token，不添加 Bearer 前缀，因为后端期望的是纯 token
+      config.headers.Authorization = token
     }
     return config
   },
@@ -46,6 +47,8 @@ request.interceptors.response.use(
       switch (error.response.status) {
         case 401:
           message = '未授权，请登录'
+          // 清除无效的 token
+          localStorage.removeItem('token')
           // 可以在这里处理登出逻辑
           break
         case 403:

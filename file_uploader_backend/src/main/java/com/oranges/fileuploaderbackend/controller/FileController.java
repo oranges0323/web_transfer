@@ -55,6 +55,8 @@ public class FileController {
     @Resource
     private CosManage cosManage;
 
+
+    @AuthCheck(mustRole = "user")
     @PostMapping("/upload")
     public BaseResponse<FileInfoVO> upload(@RequestPart("file") MultipartFile multipartFile, HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
@@ -70,6 +72,7 @@ public class FileController {
 //        return ResultUtils.success(result);
 //    }
 
+    @AuthCheck(mustRole = "user")
     @GetMapping("/download")
     public ResponseEntity<UrlResource> downloadFile(@RequestParam String id) {
         // 获取文件信息
@@ -118,6 +121,7 @@ public class FileController {
     /**
      * 删除文件
      */
+    @AuthCheck(mustRole = "user")
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteFile( Long id, HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);

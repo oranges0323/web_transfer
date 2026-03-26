@@ -39,8 +39,10 @@ export const useUserStore = defineStore('user', () => {
       const res = await userLoginUsingPost(loginForm)
       if (res.data) {
         loginUser.value = res.data
-        // 将token保存到localStorage
-        localStorage.setItem('token', res.data.userAccount || '')
+        // 保存 token 到 localStorage
+        if (res.data.token) {
+          localStorage.setItem('token', res.data.token)
+        }
         // 保存用户角色
         localStorage.setItem('userRole', res.data.userRole || '')
         ElMessage.success('登录成功')
@@ -93,7 +95,14 @@ export const useUserStore = defineStore('user', () => {
   async function initUserState() {
     const token = localStorage.getItem('token')
     if (token) {
-      await fetchLoginUser()
+      try {
+        await fetchLoginUser()
+      } catch (error) {
+        // 静默处理错误，不显示错误消息
+        console.error('初始化用户状态失败', error)
+        // 如果 token 无效，清除它
+        localStorage.removeItem('token')
+      }
     }
   }
 
