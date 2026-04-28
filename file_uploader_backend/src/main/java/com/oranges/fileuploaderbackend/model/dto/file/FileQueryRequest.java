@@ -10,7 +10,7 @@ import java.util.Date;
 public class FileQueryRequest extends PageRequest implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private Long id;
+    private String id;
 
     /**
      * 文件名称

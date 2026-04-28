@@ -113,7 +113,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 //        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE,user);
 
 
-        //todo 使用redis保存登录态
+        // 使用redis保存登录态
         //生成随机token
         String token = UUID.randomUUID().toString(true);
         //将token保存到redis中
@@ -138,7 +138,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 //        //清除登录态
 //        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
 
-        //todo 使用redis清除登录态
+        // 使用redis清除登录态
         String token = request.getHeader("authorization");
         //校验是否登录
         if(StrUtil.isBlank(token)){
@@ -149,7 +149,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return true;
     }
 
-
+    /**
+     * 接收前端返回的token，从redis查询用户信息返回前端
+     * @param request
+     * @return
+     */
     @Override
     public User getLoginUser(HttpServletRequest request) {
         //从请求头获取token
@@ -162,8 +166,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         //从redis中获取用户信息
         UserVO userVO = (UserVO) redisTemplate.opsForValue().get("loginUser:token:" + token);
         ThrowUtils.throwIf(userVO == null, ErrorCode.NOT_LOGIN_ERROR);
+        //校验用户ID是否存在
+        ThrowUtils.throwIf(userVO.getId() == null, ErrorCode.NOT_LOGIN_ERROR);
         //查询用户是否存在
         User currentUser = this.getById(userVO.getId());
+        ThrowUtils.throwIf(currentUser == null, ErrorCode.NOT_LOGIN_ERROR);
         return currentUser;
     }
 

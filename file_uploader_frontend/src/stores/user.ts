@@ -97,11 +97,14 @@ export const useUserStore = defineStore('user', () => {
     if (token) {
       try {
         await fetchLoginUser()
-      } catch (error) {
+      } catch (error: any) {
         // 静默处理错误，不显示错误消息
         console.error('初始化用户状态失败', error)
-        // 如果 token 无效，清除它
-        localStorage.removeItem('token')
+        // 只有当错误明确表示未登录时，才清除 token
+        // 避免因为服务器内部错误导致误退出
+        if (error.code === 401 || error.message?.includes('未登录') || error.response?.status === 401) {
+          localStorage.removeItem('token')
+        }
       }
     }
   }

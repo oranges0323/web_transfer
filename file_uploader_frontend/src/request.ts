@@ -33,6 +33,10 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response) => {
+    // 特殊处理 blob 类型的响应
+    if (response.config.responseType === 'blob') {
+      return response.data
+    }
     // 如果响应中的 code 不为 0，则显示错误消息
     if (response.data.code !== 0) {
       ElMessage.error(response.data.message || '请求失败')
@@ -47,9 +51,13 @@ request.interceptors.response.use(
       switch (error.response.status) {
         case 401:
           message = '未授权，请登录'
-          // 清除无效的 token
-          localStorage.removeItem('token')
-          // 可以在这里处理登出逻辑
+          // 只有当请求是获取用户信息时，才清除 token
+          // 避免因为其他接口的 401 错误导致误退出
+          if (error.config?.url?.includes('/user/get/login')) {
+            // 清除无效的 token
+            localStorage.removeItem('token')
+            // 可以在这里处理登出逻辑
+          }
           break
         case 403:
           message = '拒绝访问'
@@ -58,7 +66,8 @@ request.interceptors.response.use(
           message = '请求地址不存在'
           break
         case 500:
-          message = ' 服务器内部错误'
+          message = '服务器内部错误'
+          // 服务器内部错误时不清除 token，避免误退出
           break
         default:
           message = error.response.data.message || '请求失败'

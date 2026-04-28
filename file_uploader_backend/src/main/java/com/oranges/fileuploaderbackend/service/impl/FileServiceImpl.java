@@ -66,6 +66,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo>
         //上传
         //上传到COS的路径前缀，分id保存
         String uploadPathPrefix = String.format("public/%s", loginUser.getId());
+
         FileUploadResult fileUploadResult = uploadCOSFile(multipartFile, uploadPathPrefix);
 
         //存入数据库
@@ -142,6 +143,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo>
     /**
      * 废弃方法
      */
+    @Deprecated
     @Override
     public Boolean downloadFile(FileDownloadRequest fileDownloadRequest, User loginUser) {
         //校验
@@ -248,7 +250,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo>
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
         }
         QueryWrapper<FileInfo> queryWrapper = new QueryWrapper<>();
-        Long id = fileQueryRequest.getId();
+        String id = fileQueryRequest.getId();
         String name = fileQueryRequest.getName();
         String fileFormat = fileQueryRequest.getFileFormat();
         String fileType = fileQueryRequest.getFileType();
@@ -256,7 +258,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo>
         Long userId = fileQueryRequest.getUserId();
 
         // 添加查询条件
-        queryWrapper.eq(ObjUtil.isNotNull(id), "id", id);
+        queryWrapper.eq(StrUtil.isNotBlank(id), "id", id);
         queryWrapper.like(StrUtil.isNotBlank(name), "name", name);  // 通常文件名搜索使用 like 更合理
         queryWrapper.eq(StrUtil.isNotBlank(fileFormat), "fileFormat", fileFormat);
         queryWrapper.eq(StrUtil.isNotBlank(fileType), "fileType", fileType);

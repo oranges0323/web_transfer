@@ -9,7 +9,7 @@ import { listFileVoByIdUsingGet, deleteFileUsingPost, downloadFileUsingGet, encr
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const fileId = ref(Number(route.params.id))
+const fileId = ref(route.params.id)
 const fileDetail = ref<API.FileInfoVO | null>(null)
 const loading = ref(true)
 const dialogVisible = ref(false)
@@ -28,10 +28,10 @@ const fetchFileDetail = async () => {
       pageSize: 1
     }
     
-    // 添加用户ID参数
-    if (userStore.loginUser?.id) {
-      params.userId = userStore.loginUser.id
-    }
+    // 不添加userId参数，直接根据id查询文件
+    // if (userStore.loginUser?.id) {
+    //   params.userId = userStore.loginUser.id
+    // }
     
     const response = await listFileVoByIdUsingGet(params)
 

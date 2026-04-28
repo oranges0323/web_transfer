@@ -56,12 +56,17 @@ public class FileController {
     private CosManage cosManage;
 
 
-    @AuthCheck(mustRole = "user")
     @PostMapping("/upload")
     public BaseResponse<FileInfoVO> upload(@RequestPart("file") MultipartFile multipartFile, HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "未登录");
+
+        // 调用 service 处理上传文件
         FileInfoVO fileInfoVO = fileService.uploadFile(multipartFile, loginUser);
         ThrowUtils.throwIf(fileInfoVO == null, ErrorCode.OPERATION_ERROR, "上传失败");
+
+        log.info("{}上传了{}文件", loginUser.getUserName(),fileInfoVO.getName());
+
         return ResultUtils.success(fileInfoVO);
     }
 
@@ -72,9 +77,9 @@ public class FileController {
 //        return ResultUtils.success(result);
 //    }
 
-    @AuthCheck(mustRole = "user")
     @GetMapping("/download")
     public ResponseEntity<UrlResource> downloadFile(@RequestParam String id) {
+
         // 获取文件信息
         FileInfo fileInfo = fileMapper.selectById(id);
         if (fileInfo == null) {
@@ -83,13 +88,24 @@ public class FileController {
 
         // 设置响应头
         HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileInfo.getName() + "\"");
+
+//        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileInfo.getName() + "\"");
+        //告诉浏览器，这是附件直接触发下载
+        try {
+            String encodedFileName = java.net.URLEncoder.encode(fileInfo.getName(), "UTF-8");
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"");
+        } catch (Exception e) {
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileInfo.getName() + "\"");
+        }
+        //告知浏览器文件类型
         headers.add(HttpHeaders.CONTENT_TYPE, "application/octet-stream");
+        //设置断点续传
         headers.add(HttpHeaders.ACCEPT_RANGES, "bytes");
 
         // 返回文件流
         try {
             UrlResource resource = new UrlResource(fileInfo.getUrl());
+            log.info("下载了{}文件", fileInfo.getName());
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentLength(resource.contentLength())
@@ -99,12 +115,12 @@ public class FileController {
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
+
     }
 
     /**
      * 分页获取文件列表
      */
-//    @AuthCheck(mustRole = "admin")
     @GetMapping("/get/list/vo")
     public BaseResponse<Page<FileInfoVO>> listFileVOById(FileQueryRequest fileQueryRequest) {
         ThrowUtils.throwIf(fileQueryRequest == null, ErrorCode.PARAMS_ERROR);
@@ -115,13 +131,15 @@ public class FileController {
         Page<FileInfoVO> fileVOPage = new Page<>(current, pageSize, fileInfoPage.getTotal());
         List<FileInfoVO> userVOList = fileService.getFileVOList(fileInfoPage.getRecords());
         fileVOPage.setRecords(userVOList);
+
+//        log.info("获取了文件列表");
         return ResultUtils.success(fileVOPage);
     }
 
     /**
      * 删除文件
      */
-    @AuthCheck(mustRole = "user")
+//    @AuthCheck(mustRole = "user")
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteFile( Long id, HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
@@ -134,6 +152,10 @@ public class FileController {
         fileInfo.setIsDelete(1);
         int i = fileMapper.updateById(fileInfo);
 
+        ThrowUtils.throwIf(i <= 0, ErrorCode.OPERATION_ERROR, "删除失败");
+
+        log.info("{}删除了{}文件", loginUser.getUserName(),fileInfo.getName());
+
         return ResultUtils.success(i > 0);
     }
 
@@ -142,6 +164,8 @@ public class FileController {
     public BaseResponse<Boolean> encrypt(FileEncryptionRequest fileEncryptionRequest, HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
         Boolean result = fileService.encryptFile(fileEncryptionRequest, loginUser);
+
+        log.info("{}加密了{}文件", loginUser.getUserName(),fileEncryptionRequest.getId());
         return ResultUtils.success(result);
     }
 
@@ -149,6 +173,8 @@ public class FileController {
     public BaseResponse<Boolean> decrypt(Long fileId, HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
         Boolean result = fileService.decryptFile(fileId, loginUser);
+
+        log.info("{}解密了{}文件", loginUser.getUserName(),fileId);
 
         return ResultUtils.success(result);
     }
