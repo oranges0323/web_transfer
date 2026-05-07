@@ -109,10 +109,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if(user == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户不存在或密码错误");
         }
-        //设置登录态
-//        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE,user);
-
-
         // 使用redis保存登录态
         //生成随机token
         String token = UUID.randomUUID().toString(true);
@@ -122,22 +118,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         LoginUserVO loginUserVO = this.getLoginUserVO(user);
         loginUserVO.setToken(token);
         return loginUserVO;
-
-
-//        return  this.getLoginUserVO(user);
-
     }
 
     @Override
     public boolean userLogout(HttpServletRequest request) {
-//        //先判断是否登录
-//        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-//        if(userObj == null){
-//            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
-//        }
-//        //清除登录态
-//        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
-
         // 使用redis清除登录态
         String token = request.getHeader("authorization");
         //校验是否登录
@@ -196,7 +180,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return queryWrapper;
     }
 
-    //todo
     /**
      * 用户管理（管理员）
      * 创建用户

@@ -126,6 +126,10 @@ public class FileController {
         ThrowUtils.throwIf(fileQueryRequest == null, ErrorCode.PARAMS_ERROR);
         long current = fileQueryRequest.getCurrent();
         long pageSize = fileQueryRequest.getPageSize();
+
+        // 强制设置为null，确保查询所有用户的文件，不限制用户ID
+        fileQueryRequest.setUserId(null);
+
         Page<FileInfo> fileInfoPage = fileService.page(new Page<>(current, pageSize),
                 fileService.getQueryWrapper(fileQueryRequest));
         Page<FileInfoVO> fileVOPage = new Page<>(current, pageSize, fileInfoPage.getTotal());
@@ -139,7 +143,6 @@ public class FileController {
     /**
      * 删除文件
      */
-//    @AuthCheck(mustRole = "user")
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteFile( Long id, HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
