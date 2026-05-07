@@ -322,9 +322,9 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo>
 
         return "other";
     }
-
+    @Override
     //加盐方法
-    private String getEncryptPassword(String filePassword) {
+    public String getEncryptPassword(String filePassword) {
         // 加盐混淆密码
         final String SALT = "oranges";
         return DigestUtils.md5DigestAsHex((SALT + filePassword).getBytes());

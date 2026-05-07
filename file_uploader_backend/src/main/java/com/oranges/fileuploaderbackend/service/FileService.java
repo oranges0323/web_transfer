@@ -22,11 +22,12 @@ public interface FileService extends IService<FileInfo> {
         FileInfoVO uploadFile(MultipartFile multipartFile, User loginUser);
 
         FileUploadResult uploadCOSFile(MultipartFile multipartFile, String uploadPathPrefix);
+
         Boolean downloadFile(FileDownloadRequest fileDownloadRequest, User loginUser);
 
-        Boolean encryptFile(FileEncryptionRequest fileEncryptionRequest,User loginUser);
+        Boolean encryptFile(FileEncryptionRequest fileEncryptionRequest, User loginUser);
 
-        Boolean decryptFile(Long fileId,User loginUser);
+        Boolean decryptFile(Long fileId, User loginUser);
 
         FileInfo getLoginUser(FileInfoVO fileInfoVO);
 
@@ -35,4 +36,6 @@ public interface FileService extends IService<FileInfo> {
         QueryWrapper<FileInfo> getQueryWrapper(FileQueryRequest fileQueryRequest);
 
         List<FileInfoVO> getFileVOList(List<FileInfo> fileInfoList);
+
+        String getEncryptPassword(String filePassword);
 }

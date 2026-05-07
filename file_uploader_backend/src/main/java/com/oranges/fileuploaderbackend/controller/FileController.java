@@ -65,7 +65,7 @@ public class FileController {
         FileInfoVO fileInfoVO = fileService.uploadFile(multipartFile, loginUser);
         ThrowUtils.throwIf(fileInfoVO == null, ErrorCode.OPERATION_ERROR, "上传失败");
 
-        log.info("{}上传了{}文件", loginUser.getUserName(),fileInfoVO.getName());
+        log.info("{}上传了{}文件", loginUser.getUserName(), fileInfoVO.getName());
 
         return ResultUtils.success(fileInfoVO);
     }
@@ -77,14 +77,26 @@ public class FileController {
 //        return ResultUtils.success(result);
 //    }
 
+    //todo
+    //下载加密,前端重新生成接口
     @GetMapping("/download")
-    public ResponseEntity<UrlResource> downloadFile(@RequestParam String id) {
+    public ResponseEntity<UrlResource> downloadFile(@RequestParam String id, String password) {
 
         // 获取文件信息
         FileInfo fileInfo = fileMapper.selectById(id);
+
         if (fileInfo == null) {
             return ResponseEntity.notFound().build();
         }
+        //检查是否加密
+        if (fileInfo.getIsEncryption() == 1) {
+            String encryptPassword = fileService.getEncryptPassword(password);
+            //校验密码
+            if (!encryptPassword.equals(fileInfo.getFilePassword())) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
+            }
+        }
+
 
         // 设置响应头
         HttpHeaders headers = new HttpHeaders();
@@ -144,7 +156,7 @@ public class FileController {
      * 删除文件
      */
     @PostMapping("/delete")
-    public BaseResponse<Boolean> deleteFile( Long id, HttpServletRequest httpServletRequest) {
+    public BaseResponse<Boolean> deleteFile(Long id, HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
         FileInfo fileInfo = fileMapper.selectById(id);
         ThrowUtils.throwIf(fileInfo == null, ErrorCode.NOT_FOUND_ERROR, "文件不存在");
@@ -157,7 +169,7 @@ public class FileController {
 
         ThrowUtils.throwIf(i <= 0, ErrorCode.OPERATION_ERROR, "删除失败");
 
-        log.info("{}删除了{}文件", loginUser.getUserName(),fileInfo.getName());
+        log.info("{}删除了{}文件", loginUser.getUserName(), fileInfo.getName());
 
         return ResultUtils.success(i > 0);
     }
@@ -168,7 +180,7 @@ public class FileController {
         User loginUser = userService.getLoginUser(httpServletRequest);
         Boolean result = fileService.encryptFile(fileEncryptionRequest, loginUser);
 
-        log.info("{}加密了{}文件", loginUser.getUserName(),fileEncryptionRequest.getId());
+        log.info("{}加密了{}文件", loginUser.getUserName(), fileEncryptionRequest.getId());
         return ResultUtils.success(result);
     }
 
@@ -177,7 +189,7 @@ public class FileController {
         User loginUser = userService.getLoginUser(httpServletRequest);
         Boolean result = fileService.decryptFile(fileId, loginUser);
 
-        log.info("{}解密了{}文件", loginUser.getUserName(),fileId);
+        log.info("{}解密了{}文件", loginUser.getUserName(), fileId);
 
         return ResultUtils.success(result);
     }

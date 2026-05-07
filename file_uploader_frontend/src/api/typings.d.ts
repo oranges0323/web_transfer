@@ -64,6 +64,8 @@ declare namespace API {
   type downloadFileUsingGETParams = {
     /** id */
     id: string
+    /** password */
+    password?: string
   }
 
   type encryptUsingPOSTParams = {
@@ -141,7 +143,7 @@ declare namespace API {
     current?: number
     fileFormat?: string
     fileType?: string
-    id?: number
+    id?: string
     isEncryption?: number
     name?: string
     pageSize?: number
