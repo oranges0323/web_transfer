@@ -38,11 +38,12 @@ export async function downloadFileUsingGet(
   params: API.downloadFileUsingGETParams,
   options?: { [key: string]: any }
 ) {
-  return request<API.UrlResource>('/fileapi/file/download', {
+  return request<Blob>('/fileapi/file/download', {
     method: 'GET',
     params: {
       ...params,
     },
+    responseType: 'blob',
     ...(options || {}),
   })
 }

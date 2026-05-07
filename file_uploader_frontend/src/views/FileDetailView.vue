@@ -128,22 +128,24 @@ const confirmEncryption = async () => {
         return
       }
       
-      const response = await downloadFileUsingGet({ 
+      const blob = await downloadFileUsingGet({
         id: String(fileDetail.value.id),
-        filePassword: encryptForm.value.filePassword 
+        filePassword: encryptForm.value.filePassword
       })
-      
-      if (response && response.url) {
+
+      if (blob) {
         // 创建一个隐藏的a标签来触发下载
+        const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
-        link.href = response.url
+        link.href = url
         link.download = fileDetail.value.name || 'download'
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
         ElMessage.success('文件下载成功')
       } else {
-        ElMessage.error('获取下载链接失败')
+        ElMessage.error('下载文件失败')
       }
       
       dialogVisible.value = false

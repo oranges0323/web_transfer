@@ -80,7 +80,7 @@ public class FileController {
     //todo
     //下载加密,前端重新生成接口
     @GetMapping("/download")
-    public ResponseEntity<UrlResource> downloadFile(@RequestParam String id, String password) {
+    public ResponseEntity<UrlResource> downloadFile(@RequestParam String id,String filePassword) {
 
         // 获取文件信息
         FileInfo fileInfo = fileMapper.selectById(id);
@@ -90,7 +90,7 @@ public class FileController {
         }
         //检查是否加密
         if (fileInfo.getIsEncryption() == 1) {
-            String encryptPassword = fileService.getEncryptPassword(password);
+            String encryptPassword = fileService.getEncryptPassword(filePassword);
             //校验密码
             if (!encryptPassword.equals(fileInfo.getFilePassword())) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");

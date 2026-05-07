@@ -64,8 +64,6 @@ declare namespace API {
   type downloadFileUsingGETParams = {
     /** id */
     id: string
-    /** password */
-    password?: string
   }
 
   type encryptUsingPOSTParams = {
