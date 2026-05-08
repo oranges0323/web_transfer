@@ -78,7 +78,7 @@ public class FileController {
 //    }
 
     //todo
-    //下载加密,前端重新生成接口
+    //前端还是不能下载加密文件
     @GetMapping("/download")
     public ResponseEntity<UrlResource> downloadFile(@RequestParam String id,String filePassword) {
 
