@@ -448,7 +448,7 @@ const getFileTypeTag = (filename: string) => {
           />
         </el-form-item>
         <p v-if="currentFile?.isEncryption === 1" class="decrypt-notice">
-          确定要解密文件 "{{ currentFile?.name }}" 吗？
+          {{ isDownloadOperation ? '确定要下载解密文件 "' + currentFile?.name + '" 吗？' : '确定要解密文件 "' + currentFile?.name + '" 吗？' }}
         </p>
       </el-form>
 

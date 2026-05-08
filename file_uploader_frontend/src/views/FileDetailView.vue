@@ -27,12 +27,12 @@ const fetchFileDetail = async () => {
       current: 1,
       pageSize: 1
     }
-    
+
     // 不添加userId参数，直接根据id查询文件
     // if (userStore.loginUser?.id) {
     //   params.userId = userStore.loginUser.id
     // }
-    
+
     const response = await listFileVoByIdUsingGet(params)
 
     if (response.code === 0 && response.data && response.data.records && response.data.records.length > 0) {
@@ -72,7 +72,7 @@ const downloadFile = async () => {
       isDownloadOperation.value = true
       return
     }
-    
+
     const response = await downloadFileUsingGet({ id: String(fileDetail.value.id) })
     if (response && response.url) {
       // 创建一个隐藏的a标签来触发下载
@@ -127,7 +127,7 @@ const confirmEncryption = async () => {
         ElMessage.warning('请输入解密密码')
         return
       }
-      
+
       const blob = await downloadFileUsingGet({
         id: String(fileDetail.value.id),
         filePassword: encryptForm.value.filePassword
@@ -147,12 +147,12 @@ const confirmEncryption = async () => {
       } else {
         ElMessage.error('下载文件失败')
       }
-      
+
       dialogVisible.value = false
       isDownloadOperation.value = false
       return
     }
-    
+
     let response
     if (fileDetail.value.isEncryption === 1) {
       // 当前已加密，执行解密操作
@@ -160,10 +160,10 @@ const confirmEncryption = async () => {
         ElMessage.warning('请输入解密密码')
         return
       }
-      
-      response = await decryptUsingPost({ 
+
+      response = await decryptUsingPost({
         fileId: fileDetail.value.id,
-        filePassword: encryptForm.value.filePassword 
+        filePassword: encryptForm.value.filePassword
       })
       if (response.code === 0 && response.data) {
         ElMessage.success('文件解密成功')
@@ -275,7 +275,7 @@ const getFileTypeTag = (filename: string) => {
             <el-button type="primary" @click="downloadFile">
               <el-icon><download /></el-icon>下载
             </el-button>
-            <el-button 
+            <el-button
               :type="fileDetail.isEncryption === 1 ? 'success' : 'warning'"
               @click="openEncryptDialog"
             >
@@ -325,8 +325,8 @@ const getFileTypeTag = (filename: string) => {
             show-password
           />
         </el-form-item>
-        <p v-if="!isDownloadOperation && fileDetail?.isEncryption === 1" class="decrypt-notice">
-          确定要解密文件 "{{ fileDetail?.name }}" 吗？
+        <p v-if="fileDetail?.isEncryption === 1" class="decrypt-notice">
+          {{ isDownloadOperation ? '确定要下载解密文件 "' + fileDetail?.name + '" 吗？' : '确定要解密文件 "' + fileDetail?.name + '" 吗？' }}
         </p>
       </el-form>
 
