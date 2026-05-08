@@ -32,9 +32,17 @@ request.interceptors.request.use(
 
 // 响应拦截器
 request.interceptors.response.use(
-  (response) => {
+  async (response) => {
     // 特殊处理 blob 类型的响应
     if (response.config.responseType === 'blob') {
+      // 检查响应是否包含错误信息
+      const contentType = response.headers['content-type']
+      if (contentType && contentType.includes('application/json')) {
+        // 如果是 JSON 格式，说明是错误响应
+        const errorData = await new Response(response.data).json()
+        ElMessage.error(errorData.message || '下载失败')
+        return Promise.reject(errorData)
+      }
       return response.data
     }
     // 如果响应中的 code 不为 0，则显示错误消息

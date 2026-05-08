@@ -76,9 +76,8 @@ public class FileController {
 //        Boolean result = fileService.downloadFile(fileDownloadRequest, loginUser);
 //        return ResultUtils.success(result);
 //    }
-
     //todo
-    //前端还是不能下载加密文件
+    //把加密删掉，要下载直接让前端跳转到解密，先解密在下载
     @GetMapping("/download")
     public ResponseEntity<UrlResource> downloadFile(@RequestParam String id,String filePassword) {
 

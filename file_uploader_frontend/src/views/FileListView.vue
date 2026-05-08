@@ -121,13 +121,30 @@ const downloadFile = async (file: API.FileInfoVO) => {
       return
     }
 
-    const blob = await downloadFileUsingGet({ id: String(file.id) })
+    // 下载非加密文件
+    await performDownload(file.id, null, file.name)
+  } catch (error) {
+    console.error('下载文件出错:', error)
+    ElMessage.error('下载文件时发生错误')
+  }
+}
+
+// 执行下载操作
+const performDownload = async (fileId: string, filePassword: string | null, fileName: string) => {
+  try {
+    const params: any = { id: fileId }
+    if (filePassword) {
+      params.filePassword = filePassword
+    }
+
+    const blob = await downloadFileUsingGet(params)
     if (blob) {
       // 创建一个隐藏的a标签来触发下载
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = file.name || 'download'
+      // 解码文件名，处理后端URL编码的文件名
+      link.download = decodeURIComponent(fileName) || 'download'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -138,7 +155,8 @@ const downloadFile = async (file: API.FileInfoVO) => {
     }
   } catch (error) {
     console.error('下载文件出错:', error)
-    ElMessage.error('下载文件时发生错误')
+    // 错误信息已在响应拦截器中处理
+    throw error
   }
 }
 
@@ -177,23 +195,12 @@ const confirmEncryption = async () => {
         return
       }
 
-      const response = await downloadFileUsingGet({
-        id: String(currentFile.value.id),
-        filePassword: encryptForm.value.filePassword
-      })
-
-      if (response && response.url) {
-        // 创建一个隐藏的a标签来触发下载
-        const link = document.createElement('a')
-        link.href = response.url
-        link.download = currentFile.value.name || 'download'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        ElMessage.success('文件下载成功')
-      } else {
-        ElMessage.error('获取下载链接失败')
-      }
+      // 使用统一的下载函数
+      await performDownload(
+        String(currentFile.value.id),
+        encryptForm.value.filePassword,
+        currentFile.value.name || 'download'
+      )
 
       dialogVisible.value = false
       isDownloadOperation.value = false
