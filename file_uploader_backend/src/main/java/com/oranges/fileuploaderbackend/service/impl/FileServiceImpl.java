@@ -268,7 +268,16 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo>
         // 添加逻辑删除过滤条件
         queryWrapper.eq("isDelete", 0);
 
-        return queryWrapper;  // 返回构建好地查询条件
+        // 排序
+        String sortField = fileQueryRequest.getSortField();
+        String sortOrder = fileQueryRequest.getSortOrder();
+        if (StrUtil.isNotBlank(sortField)) {
+            queryWrapper.orderBy(true, "ascend".equals(sortOrder), sortField);
+        } else {
+            queryWrapper.orderByDesc("createTime");
+        }
+
+        return queryWrapper;
     }
 
     @Override

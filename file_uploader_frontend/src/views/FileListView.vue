@@ -30,9 +30,11 @@ const fetchFileList = async () => {
   try {
     const params: any = {
       current: currentPage.value,
-      pageSize: pageSize.value
+      pageSize: pageSize.value,
+      sortField: 'createTime',
+      sortOrder: 'descend'
     }
-    
+
     // 不限制用户ID，显示所有用户上传的文件
     // params.userId = userStore.loginUser.id
 
@@ -51,7 +53,7 @@ const fetchFileList = async () => {
     const response = await listFileVoByIdUsingGet(params)
     if (response.code === 0 && response.data) {
       fileList.value = response.data.records || []
-      total.value = response.data.total || 0
+      total.value = Number(response.data.total) || 0
     } else {
       ElMessage.error(response.message || '获取文件列表失败')
     }
@@ -118,7 +120,7 @@ const downloadFile = async (file: API.FileInfoVO) => {
       isDownloadOperation.value = true
       return
     }
-    
+
     const blob = await downloadFileUsingGet({ id: String(file.id) })
     if (blob) {
       // 创建一个隐藏的a标签来触发下载
@@ -174,12 +176,12 @@ const confirmEncryption = async () => {
         ElMessage.warning('请输入解密密码')
         return
       }
-      
-      const response = await downloadFileUsingGet({ 
+
+      const response = await downloadFileUsingGet({
         id: String(currentFile.value.id),
-        filePassword: encryptForm.value.filePassword 
+        filePassword: encryptForm.value.filePassword
       })
-      
+
       if (response && response.url) {
         // 创建一个隐藏的a标签来触发下载
         const link = document.createElement('a')
@@ -192,12 +194,12 @@ const confirmEncryption = async () => {
       } else {
         ElMessage.error('获取下载链接失败')
       }
-      
+
       dialogVisible.value = false
       isDownloadOperation.value = false
       return
     }
-    
+
     let response
     if (currentFile.value.isEncryption === 1) {
       // 当前已加密，执行解密操作
@@ -205,10 +207,10 @@ const confirmEncryption = async () => {
         ElMessage.warning('请输入解密密码')
         return
       }
-      
-      response = await decryptUsingPost({ 
+
+      response = await decryptUsingPost({
         fileId: currentFile.value.id,
-        filePassword: encryptForm.value.filePassword 
+        filePassword: encryptForm.value.filePassword
       })
       if (response.code === 0 && response.data) {
         ElMessage.success('文件解密成功')
@@ -394,8 +396,8 @@ const getFileTypeTag = (filename: string) => {
             <el-button size="small" type="primary" @click="downloadFile(scope.row)">
               <el-icon><download /></el-icon>下载
             </el-button>
-            <el-button 
-              size="small" 
+            <el-button
+              size="small"
               :type="scope.row.isEncryption === 1 ? 'success' : 'warning'"
               @click="openEncryptDialog(scope.row)"
             >
